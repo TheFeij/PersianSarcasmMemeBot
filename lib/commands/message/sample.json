@@ -1,0 +1,27 @@
+{
+    "message_id": 40,
+    "from": {
+        "id": 7269923281,
+        "is_bot": false,
+        "first_name": "Chill",
+        "last_name": "Lad",
+        "username": "TheChillLad",
+        "language_code": "en"
+    },
+    "chat": {
+        "id": 7269923281,
+        "first_name": "Chill",
+        "last_name": "Lad",
+        "username": "TheChillLad",
+        "type": "private"
+    },
+    "date": 1789671503,
+    "text": "/start",
+    "entities": [
+        {
+            "offset": 0,
+            "length": 6,
+            "type": "bot_command"
+        }
+    ]
+}

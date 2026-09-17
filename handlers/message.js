@@ -1,21 +1,26 @@
-import { api, db } from 'sdk';
-import { messages } from 'schema';
-import { eq } from 'sdk/db'
+import {getUsers, startCommand} from "lib/commands/message/start";
+import { api } from 'sdk';
 
 export default async function (message, ctx) {
-    const msgs = await db.select().from(messages).all()
-    console.log(msgs)
+    const text = message.text ?? "";
 
-    // Save this message.
-    await db.insert(messages)
-        .values({ chatId: message.chat.id, text: message.text })
-        .run();
+    const [command, ...args] = text.trim().split(/\s+/);
 
-    // Count how many we've stored for this chat.
-    const count = await db.$count(messages, eq(messages.chatId, message.chat.id));
+    switch (command) {
+        case "/start":
+            return await startCommand(message, ctx, args);
 
+        case "/getUsers":
+            return await getUsers(message, ctx, args);
+
+        default:
+            return await unknownCommand(message, ctx);
+    }
+}
+
+async function unknownCommand(message, ctx) {
     await api.sendMessage({
         chat_id: message.chat.id,
-        text: `Saved. That's ${count} message(s) from this chat so far. ${message.chat.id}`,
+        text: "Unknown command.",
     });
 }
