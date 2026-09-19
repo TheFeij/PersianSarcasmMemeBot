@@ -30,7 +30,7 @@ export const channel_members = table("channel_members", {
     invite_link_name: text('invite_link_name'),
 
     joined_at: integer('joined_at', { mode: 'timestamp' }).default(sql`(unixepoch())`),
-    left_at: integer('joined_at', { mode: 'timestamp' }).default(sql`(unixepoch())`)
+    left_at: integer('left_at', { mode: 'timestamp' }).default(sql`(unixepoch())`)
 })
 
 export const sessions = table("sessions", {
