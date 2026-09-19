@@ -33,42 +33,44 @@ export const channel_members = table("channel_members", {
     left_at: integer('joined_at', { mode: 'timestamp' }).default(sql`(unixepoch())`)
 })
 
-// export const files = table("files", {
-//     id: integer().primaryKey().autoIncrement(),
-//
-//     file_id: text().notNull(),
-//     file_type: text().notNull(),
-//
-//     name: text(),
-//     caption: text(),
-//
-//     uploaded_by: integer().notNull(),
-//
-//     created_at: integer().notNull(),
-// });
-//
-// export const file_links = table("file_links", {
-//     id: integer().primaryKey().autoIncrement(),
-//
-//     file_id: integer().notNull(),
-//     token: text().notNull(),
-//
-//     created_by: integer().notNull(),
-//
-//     created_at: integer().notNull(),
-//     expires_at: integer(),
-// });
-//
-// export const sessions = table("sessions", {
-//     id: integer().primaryKey().autoIncrement(),
-//
-//     user_id: integer().notNull(),
-//     chat_id: integer().notNull(),
-//
-//     state: text().notNull(),
-//     data: text(),
-//
-//     created_at: integer().notNull(),
-//     updated_at: integer().notNull(),
-//     expires_at: integer().notNull(),
-// });
+export const sessions = table("sessions", {
+    id: integer('id').primaryKey({autoIncrement: true}),
+
+    user_id: integer('user_id').notNull(),
+    chat_id: integer('chat_id').notNull(),
+
+
+    type: integer('type').notNull(),
+    state: integer('state').notNull(),
+    data: text('data'),
+
+    created_at: integer('created_at', { mode: 'timestamp' }).default(sql`(unixepoch())`),
+    updated_at: integer('updated_at', { mode: 'timestamp' }).default(sql`(unixepoch())`),
+    expires_at: integer('expires_at', { mode: 'timestamp' }).notNull(),
+});
+
+export const files = table("files", {
+    id: integer('id').primaryKey({autoIncrement: true}),
+
+    file_id: text().notNull(),
+    file_type: text().notNull(),
+
+    name: text(),
+    caption: text(),
+
+    uploaded_by: integer().notNull(),
+
+    created_at: integer('created_at', { mode: 'timestamp' }).default(sql`(unixepoch())`),
+});
+
+export const file_links = table("file_links", {
+    id: integer('id').primaryKey({autoIncrement: true}),
+
+    file_id: integer().notNull(),
+    token: text().notNull(),
+
+    created_by: integer().notNull(),
+
+    created_at: integer('created_at', { mode: 'timestamp' }).default(sql`(unixepoch())`),
+    expires_at: integer('expires_at', { mode: 'timestamp' }).notNull(),
+});
