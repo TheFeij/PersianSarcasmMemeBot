@@ -12,7 +12,7 @@ The bot serves two purposes:
 
 1. **Channel-post guard** — in the channel's linked discussion group, any post
    forwarded from the channel that does **not** contain a configured phrase is
-   automatically deleted.
+   automatically deleted. this feature prevents ads to be in the discussion group
 2. **Report / contact relay** — group members can reply to any message with
    `گزارش` (report) to forward it to a debug/owner chat, or `ادمین` (admin) to
    send a message to the owner.
