@@ -1,0 +1,13 @@
+
+Checking changes...
+  ↑ schema.js — modified
+  ↑ lib/domain/enums.js — modified
+  ↑ lib/reply_keyboard/reply_keyboard.js — modified
+  + lib/commands/common/message/start.js — new
+  + lib/commands/owner/message/upload_file.js — new
+  - lib/commands/message/start.js — deleted
+
+1 module will be deleted in the cloud (absent locally).
+
+- Deploying 6 changes...
+Error: Compilation failed
