@@ -1,4 +1,4 @@
-import { table, integer, text, boolean, sql } from 'sdk/db';
+import { table, integer, text, boolean, index, sql } from 'sdk/db';
 
 export const settings = table("settings", {
     id: integer('id').primaryKey({ autoIncrement: true }),
@@ -10,3 +10,21 @@ export const settings = table("settings", {
     updated_at: integer('updated_at', { mode: 'timestamp' })
         .default(sql`(unixepoch())`),
 });
+
+export const members = table("members", {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+
+    chat_id: integer('chat_id'),
+    tg_id: integer('tg_id').unique(),
+    status: text('status'),
+    source: text('source'),
+    invite_link: text('invite_link'),
+
+    created_at: integer('created_at', { mode: 'timestamp' })
+        .default(sql`(unixepoch())`),
+    updated_at: integer('updated_at', { mode: 'timestamp' })
+        .default(sql`(unixepoch())`),
+}, (t) => ({
+    updatedIdx: index('idx_members_updated').on(t.updated_at),
+    statusIdx: index('idx_members_status').on(t.status),
+}));

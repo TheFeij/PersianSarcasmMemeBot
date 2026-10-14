@@ -6,9 +6,11 @@
 
 A small **Telegram bot running on Telegram's serverless platform** (the `tgcloud`
 runtime). It is **currently deployed and in use by the Telegram channel
-[PersianSarcasm](https://t.me/PersianSarcasm)**.
+[PersianSarcasm](https://t.me/PersianSarcasm)** — a channel with **over 100k
+subscribers**. It is used to manage the channel's linked discussion group and to
+gather reports on the channel's statistics.
 
-The bot serves two purposes:
+The bot serves these purposes:
 
 1. **Channel-post guard** — in the channel's linked discussion group, any post
    forwarded from the channel that does **not** contain a configured phrase is
@@ -16,6 +18,8 @@ The bot serves two purposes:
 2. **Report / contact relay** — group members can reply to any message with
    `گزارش` (report) to forward it to a debug/owner chat, or `ادمین` (admin) to
    send a message to the owner.
+3. **Channel statistics reports** — collects and relays reports on the channel's
+   statistics.
 
 ## A note on JavaScript
 
