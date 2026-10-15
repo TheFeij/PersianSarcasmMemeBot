@@ -1,11 +1,25 @@
-import { table, integer, text, boolean, index, sql } from 'sdk/db';
+import {
+    table,
+    integer,
+    text,
+    boolean,
+    json,
+    index,
+    uniqueIndex,
+    sql,
+} from 'sdk/db';
 
 export const settings = table("settings", {
     id: integer('id').primaryKey({ autoIncrement: true }),
 
     group_chat_id: integer('group_chat_id'),
+    channel_chat_id: integer('channel_chat_id'),
     phrase: text('phrase'),
     debug: boolean('debug').default(false),
+
+    buttons_enabled: boolean('buttons_enabled').default(false),
+    buttons: json('buttons'),
+    buttons_pending: json('buttons_pending'),
 
     updated_at: integer('updated_at', { mode: 'timestamp' })
         .default(sql`(unixepoch())`),

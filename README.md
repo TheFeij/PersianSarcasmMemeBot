@@ -20,6 +20,10 @@ The bot serves these purposes:
    send a message to the owner.
 3. **Channel statistics reports** — collects and relays reports on the channel's
    statistics.
+4. **Channel post buttons** — the owner can attach inline URL buttons (with an
+   optional color) to channel posts. The bot edits the post to add the keyboard.
+   Buttons can be applied automatically to every new channel post, or to one
+   specific post on demand.
 
 ## A note on JavaScript
 
@@ -37,6 +41,7 @@ based on what kind of message it is:
 | A reply whose text is exactly `گزارش`    | `lib/relay.js`     | Forwards a report (link, sender, group, excerpt) to the debug chat. |
 | A reply whose text is exactly `ادمین`    | `lib/relay.js`     | Forwards a message to the owner.                                |
 | A command / anything from the owner      | `lib/owner.js`     | Handles owner commands and settings changes.                     |
+| A channel post in the channel            | `lib/buttons.js`   | Adds the configured inline buttons to the post (if enabled).     |
 | Anything else                            | —                  | Ignored.                                                         |
 
 ### Source layout
@@ -45,12 +50,14 @@ based on what kind of message it is:
 |------------------------|----------------------------------------------------------------|
 | `schema.js`            | Database schema — a single `settings` table.                  |
 | `lib/config/config.js` | Owner Telegram ID and debug chat ID.                          |
-| `lib/settings.js`      | Read/write the single settings row (`group_chat_id`, `phrase`, `debug`). |
+| `lib/settings.js`      | Read/write the single settings row (`group_chat_id`, `channel_chat_id`, `phrase`, `debug`, `buttons`). |
 | `lib/guard.js`         | Channel-post guard logic.                                      |
 | `lib/relay.js`         | Report / admin relay logic.                                    |
+| `lib/buttons.js`       | Channel-post buttons: parsing, building and applying keyboards. |
 | `lib/owner.js`         | Owner commands.                                                |
 | `lib/debug.js`         | Debug echo helper (console + optional debug chat).             |
 | `handlers/message.js`  | Entry point that dispatches incoming messages.                |
+| `handlers/channel_post.js` | Entry point for new posts in the channel.                 |
 | `docs/tgcloud-sdk.md`  | Full reference for the platform SDK (`db`, `api`, `fetch`).   |
 
 ## Owner commands
@@ -63,8 +70,42 @@ These only work for the `ownerTGID` configured in `lib/config/config.js`:
 | `/status`             | Show the current owner, group, and phrase.                           |
 | `/setgroup`           | Register the current group (must be sent inside the discussion group; bot must be admin with Delete Messages permission). |
 | `/setphrase <phrase>` | Set the phrase required in channel posts.                            |
+| `/buttons [on\|off\|set\|show\|clear]` | Manage the default buttons applied to new channel posts. |
+| `/post [link]`        | Attach buttons to one specific post (forward it or paste a t.me link). |
+| `/cancel`             | Abort the current multi-step button flow.                            |
 | `/debug` / `/nodebug` | Turn debug echo messages on/off.                                     |
 | `/reset`              | Clear the configured group and phrase.                               |
+
+### Channel post buttons
+
+Requires the bot to be an admin in the channel with the **Edit Messages of
+Others** permission (and, for auto-apply, the channel must be the one the bot
+first saw a post in).
+
+Define buttons one per line in this syntax:
+
+```
+row | color | text | link
+```
+
+Example:
+
+```
+1 | success | Subscribe | https://t.me/PersianSarcasm
+1 | danger  | Contact   | https://t.me/example
+2 | primary | Website   | https://example.com
+```
+
+Buttons sharing a `row` number appear side by side. `color` is one of
+`danger`, `success`, `primary` (or `default`, and aliases `red`, `green`,
+`blue`).
+
+- `/buttons set` starts a flow: the next message you send (the lines above)
+  becomes the default set. `/buttons on` then applies it to every new channel
+  post.
+- `/post` starts a flow to target one post: forward the post or send its
+  `https://t.me/...` link, then send the button lines. The bot edits that post
+  immediately.
 
 ## Setup
 
