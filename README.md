@@ -32,55 +32,73 @@ JS and this project is mostly vibe coded with DeepSeek V4 Flash.
 
 ## How it works
 
+The bot manages **any number of channels**. Each channel has its own linked
+discussion group, guard phrase, default buttons and membership statistics. A
+channel is registered automatically when the bot is added to it as an admin (or
+when it sees a post there); the legacy single-channel settings are imported once
+on the first run after upgrading.
+
 Telegram delivers every update to `handlers/message.js`, which routes the payload
 based on what kind of message it is:
 
 | Input in the discussion group            | Handler            | Behaviour                                                        |
 |------------------------------------------|--------------------|------------------------------------------------------------------|
-| Auto-forwarded channel post              | `lib/guard.js`     | Deletes the post unless its text/caption contains the phrase.    |
+| Auto-forwarded channel post              | `lib/guard.js`     | Deletes the post unless its text/caption contains the phrase of that channel. |
 | A reply whose text is exactly `گزارش`    | `lib/relay.js`     | Forwards a report (link, sender, group, excerpt) to the debug chat. |
 | A reply whose text is exactly `ادمین`    | `lib/relay.js`     | Forwards a message to the owner.                                |
 | A command / anything from the owner      | `lib/owner.js`     | Handles owner commands and settings changes.                     |
-| A channel post in the channel            | `lib/buttons.js`   | Adds the configured inline buttons to the post (if enabled).     |
+| A channel post in any channel            | `lib/buttons.js`   | Adds that channel's configured inline buttons (if enabled).      |
+| A user joins/leaves a channel            | `lib/members.js`   | Records the join/leave for that channel's report.                |
+| The bot is added to/removed from a channel | `lib/channels.js` | Registers/deactivates the channel.                              |
 | Anything else                            | —                  | Ignored.                                                         |
 
 ### Source layout
 
 | Path                   | Purpose                                                        |
 |------------------------|----------------------------------------------------------------|
-| `schema.js`            | Database schema — a single `settings` table.                  |
+| `schema.js`            | Database schema — `channels`, `channel_members`, and global `settings`. |
 | `lib/config/config.js` | Owner Telegram ID and debug chat ID.                          |
-| `lib/settings.js`      | Read/write the single settings row (`group_chat_id`, `channel_chat_id`, `phrase`, `debug`, `buttons`). |
+| `lib/channels.js`      | Channel registry: auto-registration, lookups, per-channel settings. |
+| `lib/settings.js`      | Global bot state (debug flag, pending button flow).            |
 | `lib/guard.js`         | Channel-post guard logic.                                      |
 | `lib/relay.js`         | Report / admin relay logic.                                    |
-| `lib/buttons.js`       | Channel-post buttons: parsing, building and applying keyboards. |
+| `lib/buttons.js`       | Per-channel post buttons: parsing, building and applying keyboards. |
 | `lib/owner.js`         | Owner commands.                                                |
+| `lib/members.js`       | Per-channel membership history and reports.                    |
 | `lib/debug.js`         | Debug echo helper (console + optional debug chat).             |
 | `handlers/message.js`  | Entry point that dispatches incoming messages.                |
-| `handlers/channel_post.js` | Entry point for new posts in the channel.                 |
+| `handlers/channel_post.js` | Entry point for new posts in a channel.                   |
+| `handlers/chat_member.js` | Entry point for channel member joins/leaves.               |
+| `handlers/my_chat_member.js` | Entry point for the bot being added to a channel.      |
 | `docs/tgcloud-sdk.md`  | Full reference for the platform SDK (`db`, `api`, `fetch`).   |
 
 ## Owner commands
 
-These only work for the `ownerTGID` configured in `lib/config/config.js`:
+These only work for the `ownerTGID` configured in `lib/config/config.js`.
+
+A channel is referenced as `@username` or its numeric chat id (e.g.
+`-1001234567890`). When the command is sent inside a channel's discussion group,
+or when exactly one channel is registered, the channel can be omitted.
 
 | Command               | Description                                                          |
 |-----------------------|----------------------------------------------------------------------|
 | `/start`, `/help`     | Show setup and usage instructions.                                   |
-| `/status`             | Show the current owner, group, and phrase.                           |
-| `/setgroup`           | Register the current group (must be sent inside the discussion group; bot must be admin with Delete Messages permission). |
-| `/setphrase <phrase>` | Set the phrase required in channel posts.                            |
-| `/buttons [on\|off\|set\|show\|clear]` | Manage the default buttons applied to new channel posts. |
+| `/status [channel]`   | List every channel and its config, or show one channel in detail.    |
+| `/channels`           | Alias for `/status`.                                                 |
+| `/setgroup [channel]` | Register the current discussion group (must be sent inside the group; bot must be admin with Delete Messages permission). The linked channel is detected automatically. |
+| `/setphrase [channel] <phrase>` | Set that channel's required phrase.                        |
+| `/report <channel\|all> [hours\|today]` | Member stats for one channel, or a short summary of all channels. Defaults to `today`. |
+| `/buttons [channel] [on\|off\|set\|show\|clear]` | Manage that channel's default post buttons. |
 | `/post [link]`        | Attach buttons to one specific post (forward it or paste a t.me link). |
 | `/cancel`             | Abort the current multi-step button flow.                            |
 | `/debug` / `/nodebug` | Turn debug echo messages on/off.                                     |
-| `/reset`              | Clear the configured group and phrase.                               |
+| `/reset [channel]`    | Clear that channel's group, phrase and buttons.                      |
+| `/migrate`            | Copy legacy single-channel settings and member rows into the new tables (also runs automatically). |
 
 ### Channel post buttons
 
 Requires the bot to be an admin in the channel with the **Edit Messages of
-Others** permission (and, for auto-apply, the channel must be the one the bot
-first saw a post in).
+Others** permission. Buttons are stored per channel.
 
 Define buttons one per line in this syntax:
 
@@ -100,20 +118,42 @@ Buttons sharing a `row` number appear side by side. `color` is one of
 `danger`, `success`, `primary` (or `default`, and aliases `red`, `green`,
 `blue`).
 
-- `/buttons set` starts a flow: the next message you send (the lines above)
-  becomes the default set. `/buttons on` then applies it to every new channel
-  post.
+- `/buttons <channel> set` starts a flow: the next message you send (the lines
+  above) becomes that channel's default set. `/buttons <channel> on` then
+  applies it to every new post in the channel.
 - `/post` starts a flow to target one post: forward the post or send its
   `https://t.me/...` link, then send the button lines. The bot edits that post
   immediately.
 
 ## Setup
 
-1. Add the bot to the channel's discussion group as an admin with the
+For each channel:
+
+1. Add the bot to the channel as an admin with the **Edit Messages of Others**
+   permission. The channel is registered automatically.
+2. Add the bot to the channel's discussion group as an admin with the
    **Delete Messages** permission.
-2. Send `/setgroup` inside that group.
-3. Send `/setphrase <phrase>` (from the owner account) to set the required phrase.
-4. Optionally send `/debug` to receive debug echoes.
+3. Send `/setgroup` inside that group (the linked channel is detected
+   automatically).
+4. Send `/setphrase <phrase>` inside the group, or
+   `/setphrase @channel <phrase>`, to set the required phrase.
+5. Optionally send `/debug` to receive debug echoes.
+
+Then check `/status` — it lists every registered channel with its group,
+phrase, buttons and tracked member count. `/report @channel 24` gives that
+channel's stats.
+
+## Upgrading from the single-channel version
+
+1. `npm run deploy` — deploy the new code.
+2. `npm run migrate` — creates the `channels` and `channel_members` tables.
+3. Send `/migrate` to the bot (or just run `/status`) — the old settings row is
+   copied into `channels`, and every row of the old `members` table is copied
+   into `channel_members`. The copy is idempotent (`INSERT OR IGNORE`), so it is
+   safe to run more than once. It also happens automatically on the first
+   membership update or report if you forget the command.
+4. Old tables (`settings` legacy columns, `members`) are left untouched, so the
+   history stays available; nothing writes to them any more.
 
 ## Development & deployment
 
