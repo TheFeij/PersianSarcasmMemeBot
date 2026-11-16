@@ -39,6 +39,8 @@ export const channels = table("channels", {
 
     group_chat_id: integer('group_chat_id'),
     phrase: text('phrase'),
+    // Channel posts whose text/caption contains this string are pinned.
+    pin_pattern: text('pin_pattern'),
 
     buttons_enabled: boolean('buttons_enabled').default(false),
     buttons: json('buttons'),

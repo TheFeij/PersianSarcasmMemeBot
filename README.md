@@ -24,6 +24,8 @@ The bot serves these purposes:
    optional color) to channel posts. The bot edits the post to add the keyboard.
    Buttons can be applied automatically to every new channel post, or to one
    specific post on demand.
+5. **Pattern pinning** — each channel can have a pattern; any new channel post
+   whose text or caption contains it is pinned automatically.
 
 ## A note on JavaScript
 
@@ -47,7 +49,7 @@ based on what kind of message it is:
 | A reply whose text is exactly `گزارش`    | `lib/relay.js`     | Forwards a report (link, sender, group, excerpt) to the debug chat. |
 | A reply whose text is exactly `ادمین`    | `lib/relay.js`     | Forwards a message to the owner.                                |
 | A command / anything from the owner      | `lib/owner.js`     | Handles owner commands and settings changes.                     |
-| A channel post in any channel            | `lib/buttons.js`   | Adds that channel's configured inline buttons (if enabled).      |
+| A channel post in any channel            | `lib/buttons.js`, `lib/pin.js` | Adds that channel's configured inline buttons (if enabled) and pins the post when it matches the channel's pin pattern. |
 | A user joins/leaves a channel            | `lib/members.js`   | Records the join/leave for that channel's report.                |
 | The bot is added to/removed from a channel | `lib/channels.js` | Registers/deactivates the channel.                              |
 | Anything else                            | —                  | Ignored.                                                         |
@@ -63,6 +65,7 @@ based on what kind of message it is:
 | `lib/guard.js`         | Channel-post guard logic.                                      |
 | `lib/relay.js`         | Report / admin relay logic.                                    |
 | `lib/buttons.js`       | Per-channel post buttons: parsing, building and applying keyboards. |
+| `lib/pin.js`           | Pins new channel posts that match a channel's pin pattern.       |
 | `lib/owner.js`         | Owner commands.                                                |
 | `lib/members.js`       | Per-channel membership history and reports.                    |
 | `lib/debug.js`         | Debug echo helper (console + optional debug chat).             |
@@ -87,12 +90,16 @@ or when exactly one channel is registered, the channel can be omitted.
 | `/channels`           | Alias for `/status`.                                                 |
 | `/setgroup [channel]` | Register the current discussion group (must be sent inside the group; bot must be admin with Delete Messages permission). The linked channel is detected automatically. |
 | `/setphrase [channel] <phrase>` | Set that channel's required phrase.                        |
+| `/setpin [channel] <pattern>` | Pin new posts of that channel whose text or caption contains the pattern. |
+| `/clearpin [channel]` | Stop pinning matching posts for that channel.                        |
 | `/report <channel\|all> [hours\|today]` | Member stats for one channel, or a short summary of all channels. Defaults to `today`. |
+| `/reportx <channel a> <channel b>` | How many members of channel a are also members of channel b (tracked members only). |
+| `/reportlive <channel a> <channel b> [limit] [offset]` | Same question, but checks each tracked member of channel a against channel b live through the Telegram API. Bounded by `limit` (default 200) and a time budget; rerun with `offset` to continue. |
 | `/buttons [channel] [on\|off\|set\|show\|clear]` | Manage that channel's default post buttons. |
 | `/post [link]`        | Attach buttons to one specific post (forward it or paste a t.me link). |
 | `/cancel`             | Abort the current multi-step button flow.                            |
 | `/debug` / `/nodebug` | Turn debug echo messages on/off.                                     |
-| `/reset [channel]`    | Clear that channel's group, phrase and buttons.                      |
+| `/reset [channel]`    | Clear that channel's group, phrase, pin pattern and buttons.         |
 | `/migrate`            | Copy legacy single-channel settings and member rows into the new tables (also runs automatically). |
 
 ### Channel post buttons
@@ -130,14 +137,15 @@ Buttons sharing a `row` number appear side by side. `color` is one of
 For each channel:
 
 1. Add the bot to the channel as an admin with the **Edit Messages of Others**
-   permission. The channel is registered automatically.
+   and **Pin Messages** permissions. The channel is registered automatically.
 2. Add the bot to the channel's discussion group as an admin with the
    **Delete Messages** permission.
 3. Send `/setgroup` inside that group (the linked channel is detected
    automatically).
 4. Send `/setphrase <phrase>` inside the group, or
    `/setphrase @channel <phrase>`, to set the required phrase.
-5. Optionally send `/debug` to receive debug echoes.
+5. Optionally send `/setpin @channel <pattern>` so new posts containing that
+   text are pinned, and `/debug` to receive debug echoes.
 
 Then check `/status` — it lists every registered channel with its group,
 phrase, buttons and tracked member count. `/report @channel 24` gives that
