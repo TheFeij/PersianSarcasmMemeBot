@@ -97,6 +97,7 @@ or when exactly one channel is registered, the channel can be omitted.
 | `/reportlive <channel a> <channel b> [limit] [offset]` | Same question, but checks each tracked member of channel a against channel b live through the Telegram API. Bounded by `limit` (default 200) and a time budget; rerun with `offset` to continue. |
 | `/buttons [channel] [on\|off\|set\|show\|clear]` | Manage that channel's default post buttons. |
 | `/post [link]`        | Attach buttons to one specific post (forward it or paste a t.me link). |
+| `/deletepost <link>`  | Delete the channel post itself by its t.me link (or by replying to a forwarded copy). Telegram removes the linked discussion auto-forward as a side effect. Requires Delete Messages permission in the channel. |
 | `/cancel`             | Abort the current multi-step button flow.                            |
 | `/debug` / `/nodebug` | Turn debug echo messages on/off.                                     |
 | `/reset [channel]`    | Clear that channel's group, phrase, pin pattern and buttons.         |
