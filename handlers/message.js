@@ -1,4 +1,4 @@
-import { ownerTGID } from 'lib/config/config';
+import { isPrivileged } from 'lib/config/config';
 import { echo } from 'lib/debug';
 import { handleChannelPost } from 'lib/guard';
 import { handleOwnerMessage } from 'lib/owner';
@@ -16,11 +16,7 @@ export default async function (message, ctx) {
 
         const text = message?.text ?? message?.caption ?? '';
 
-        if (
-            isChannelPost ||
-            message?.from?.id === ownerTGID ||
-            text.startsWith('/')
-        ) {
+        if (isChannelPost || isPrivileged(message?.from?.id)) {
             await echo(chatId, 'handler/message: received', {
                 chat_id: chatId,
                 chat_type: message?.chat?.type,

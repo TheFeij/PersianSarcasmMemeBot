@@ -54,11 +54,14 @@ based on what kind of message it is:
 | The bot is added to/removed from a channel | `lib/channels.js` | Registers/deactivates the channel.                              |
 | Anything else                            | —                  | Ignored.                                                         |
 
+Inline-keyboard presses arrive at `handlers/callback_query.js`, which routes
+the ads management actions (`a:…` callback data) to `lib/ads.js`.
+
 ### Source layout
 
 | Path                   | Purpose                                                        |
 |------------------------|----------------------------------------------------------------|
-| `schema.js`            | Database schema — `channels`, `channel_members`, and global `settings`. |
+| `schema.js`            | Database schema — `channels`, `channel_members`, `ads`, `ad_drafts`, and global `settings`. |
 | `lib/config/config.js` | Owner Telegram ID and debug chat ID.                          |
 | `lib/channels.js`      | Channel registry: auto-registration, lookups, per-channel settings. |
 | `lib/settings.js`      | Global bot state (debug flag, pending button flow).            |
@@ -67,17 +70,21 @@ based on what kind of message it is:
 | `lib/buttons.js`       | Per-channel post buttons: parsing, building and applying keyboards. |
 | `lib/pin.js`           | Pins new channel posts that match a channel's pin pattern.       |
 | `lib/owner.js`         | Owner commands.                                                |
+| `lib/ads.js`           | Scheduled ads: draft flow, management UI, posting.             |
 | `lib/members.js`       | Per-channel membership history and reports.                    |
 | `lib/debug.js`         | Debug echo helper (console + optional debug chat).             |
 | `handlers/message.js`  | Entry point that dispatches incoming messages.                |
 | `handlers/channel_post.js` | Entry point for new posts in a channel.                   |
 | `handlers/chat_member.js` | Entry point for channel member joins/leaves.               |
 | `handlers/my_chat_member.js` | Entry point for the bot being added to a channel.      |
+| `handlers/callback_query.js` | Entry point for inline-keyboard button presses.          |
 | `docs/tgcloud-sdk.md`  | Full reference for the platform SDK (`db`, `api`, `fetch`).   |
 
 ## Owner commands
 
-These only work for the `ownerTGID` configured in `lib/config/config.js`.
+These only work for the `ownerTGID` configured in `lib/config/config.js` —
+except the ads commands (`/setadd`, `/ads`, `/postad`), which also work for the
+extra `adminTGID` configured there.
 
 A channel is referenced as `@username` or its numeric chat id (e.g.
 `-1001234567890`). When the command is sent inside a channel's discussion group,
@@ -98,6 +105,11 @@ or when exactly one channel is registered, the channel can be omitted.
 | `/buttons [channel] [on\|off\|set\|show\|clear]` | Manage that channel's default post buttons. |
 | `/post [link]`        | Attach buttons to one specific post (forward it or paste a t.me link). |
 | `/deletepost <link>`  | Delete the channel post itself by its t.me link (or by replying to a forwarded copy). Telegram removes the linked discussion auto-forward as a side effect. Requires Delete Messages permission in the channel. |
+| `/setadd`, `/setad`   | Schedule an ad with a guided multi-step flow: channel → date (Gregorian) → preceding post → banner → pin → reply. |
+| `/ads`                | Manage scheduled ads with inline buttons: edit any field, toggle pin, post now, delete. |
+| `/postad [YYYY-MM-DD]` | Post the ad scheduled for that date (default: today in the ad timezone, UTC+3:30). With several ads on one date, choose one from buttons. |
+| `/sendadd <channel> [today]` | Post that channel's ad for today (same as `/postad` with today's date, limited to the channel named by `@username` or numeric id). |
+| `/previewad [YYYY-MM-DD]` | Play the ad's whole sequence in the debug chat without touching the channel or marking it posted. |
 | `/cancel`             | Abort the current multi-step button flow.                            |
 | `/debug` / `/nodebug` | Turn debug echo messages on/off.                                     |
 | `/reset [channel]`    | Clear that channel's group, phrase, pin pattern and buttons.         |
@@ -132,6 +144,62 @@ Buttons sharing a `row` number appear side by side. `color` is one of
 - `/post` starts a flow to target one post: forward the post or send its
   `https://t.me/...` link, then send the button lines. The bot edits that post
   immediately.
+
+## Ads
+
+Ads are scheduled per channel and posted on demand with `/postad` (or
+`/sendadd <channel>` for a specific channel's ad for today).
+
+An extra admin id (`adminTGID` in `lib/config/config.js`) can use the whole ads
+section — `/setadd`, `/ads`, `/postad`, `/sendadd`, `/previewad`, `/cancel` and
+every management button.
+The admin's `/start`/`/help` lists only those commands; any other command from
+the admin is silently ignored (no reply at all). Ads and drafts are shared, but
+the in-progress draft is per user, so the owner and the admin can each have
+their own flow without stepping on each other.
+
+Anyone else who starts or messages the bot gets no reply — the bot only answers
+the owner and the ad admin.
+
+`/setadd` walks through, in order:
+
+1. **Channel** — picked from inline buttons (skipped automatically when only
+   one channel is registered).
+2. **Date** — the next 10 days (today included) are shown as inline buttons
+   labelled like `november 23`; you can also type any Gregorian `YYYY-MM-DD`.
+3. **Preceding post** — an optional normal post that goes immediately before
+   the banner. Send it to the bot as any message (text, photo, video, …) or
+   press **Skip**.
+4. **Banner** — required; send it to the bot as any message.
+5. **Pin** — inline Yes/No: pin the banner in the channel.
+6. **Reply** — optional text posted under the banner, or **Skip**.
+
+Both content steps store the message(s) you sent; at posting time the bot
+copies a single message with `copyMessage`, and a multi-media album with
+`sendMediaGroup`. Media, captions, entities and formatting are preserved.
+Albums arrive as several separate updates, but the bot captures every member
+automatically — just send the album and it moves straight on to the next step.
+Keep those messages in the bot chat — deleting them breaks posting.
+
+`/previewad` (or the **👁 Preview** button on an ad) plays the entire sequence
+— preceding post, banner, pin and reply — in the debug chat so you can check it
+before it goes to the channel. It does not mark the ad as posted.
+
+`/ads` lists every ad as inline buttons. Selecting one opens its details, from
+which you can change the date, channel, preceding post, banner or reply text,
+toggle the pin, preview it, post it now, or delete it. The detail view shows how
+many items each part has (e.g. `Banner: 4 items`). This is how the preceding
+post can be added or replaced after the ad was created.
+
+`/postad` uses today's date in the configured ad timezone (UTC+3:30, set by
+`adTimezoneOffsetMinutes` in `lib/config/config.js`) when none is given.
+Posting is manual: the ad is not sent automatically, `/postad` is what actually
+publishes it. If several ads share the date, the bot shows buttons to choose
+one.
+
+Posting order is: preceding post → banner → pin (if set) → reply text (if
+set). Telegram channels do not support replies to a post, so if the reply is
+rejected the text is posted as a normal message instead.
 
 ## Setup
 
